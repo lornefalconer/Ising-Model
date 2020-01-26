@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "pcg_basic.h"
 
-#define D 100
+#define D 3
 #define UP 1
 #define DOWN -1
 #define S(x,y) spin[D*x + y]
@@ -14,6 +14,7 @@
 #define YES 1
 #define USE_PCG YES
 #define SEED_TIME YES
+#define BOUND 2
 
 #if ( USE_PCG ) /* Bad random number generator */
 #  define VAR_TYPE pcg32_random_t
@@ -33,6 +34,8 @@
 #  define SEED 42u
 #endif
 
+#define S(x,y) spin[(D+(x))%D][(D+(y))%D]
+
 /*Program to model time evolution of the Ising Model of Ferromagnetism
 
 
@@ -48,7 +51,23 @@
 static void initialize_spin_array(){
     /*map 2D array onto 1D array as its faster*/
     /*elements accessed as element_ij = spin_array(D*i+j)*/
+    VAR_TYPE rng1;
+    SRANDOM_R(&rng1, SEED, (intptr_t)&rng1);
+
     int *spin_array = malloc(D*D*sizeof(int));
+
+    for(int i = 0; i<D; i++){
+        for(int j = 0; j<D; j++){
+            int result = RANDOM_BOUND_0_1(&rng1, BOUND);
+            if(result != 1){
+                result = -1;
+            }
+            spin_array[D*i +j] = result;
+            printf("spin element_%d%d is: %d\n",i,j,result);
+        }
+
+
+    }
 
 
 
@@ -75,14 +94,17 @@ int main()
     printf("%d\n",rng1);
 
         for(i = 0; i< rounds; i++){
-            printf("bounded rn %d is %ld \n", i, RANDOM_BOUND_0_1(&rng1, bound));
+            printf("bounded rn %d is %ld \n", i, RANDOM_BOUND_0_1(&rng1, BOUND));
         }
 
+    initialize_spin_array();
+    int L = 5;
+    //test of the wrapper method. WORKS.
+    for(int x = -1; x< L +1; x++){
+            int r = (L+(x))%L;
+            printf("x is %d\n", r);
 
-    printf("Hello world!\n");
-    int x = 99;
-    int r = (D+(x))%D;
-    printf("%d\n",r);
-    printf("%d\n", RANDOM_MAX);
+    }
+
     return 0;
 }
