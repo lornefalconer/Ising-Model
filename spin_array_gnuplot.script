@@ -1,0 +1,7 @@
+#spin_array_gnuplot.script
+set term x11 persist
+set size square
+set xlabel "x(a)"
+set ylabel "y(a)
+plot("spin_array.txt") with points palette
+exit
