@@ -1,0 +1,7 @@
+#total_E_gnuplot.script
+set term x11 persist
+set size square
+set ylabel "Energy(J)"
+set xlabel "Iterations"
+plot("total_energy.txt")
+exit
