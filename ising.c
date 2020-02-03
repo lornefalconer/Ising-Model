@@ -5,17 +5,18 @@
 #include <time.h>
 #include "pcg_basic.h"
 
-#define ITERATIONS 300000
+#define ITERATIONS 1000000
 #define MAXLENGTH 256
 #define D 100/*100 seems the upper limit to reasonable processing time for serial computing.*/
 #define UP 1
 #define DOWN -1
 #define S(x,y) spin_array[D*((D+(x))%D) + ((D+(y))%D)]
+#define N 5000
 
 #define MU0 12.57e-7
-#define B 0.0
+#define B 0.01
 #define K_B 1.38064852e-23
-#define T 500000.0
+#define T 500.0
 #define J (K_B*T)
 
 
@@ -27,9 +28,10 @@
 #define SCRIPT_EN "total_E_gnuplot.script"
 
 /*RNG selection macros taken from mat_gen.c by CDHW.*/
+#define FAIL 0.0
 #define NO 0
 #define YES 1
-#define USE_PCG NO
+#define USE_PCG YES
 #define USE_RAND YES
 #define SEED_TIME YES
 #define SPIN_BOUND 2
@@ -186,6 +188,43 @@ static double calculate_delta_E(int* spin_array,int x,int y){
     return delta_E;
 }
 
+
+
+
+/*Function to write current delta_E of the ith iteration to an array using the modulo operator.
+once all array elements have been filled an average is calculated and stored in an appropriate variable.
+the array is then overwritten from the beginning. When full of new values an average is calculated again and compared to
+the previous average. If they differ, the system is not in equilibrium and the old average is overwritten by the new.
+If they are the same (within a suitable uncertainty window oweing to floating point arithmetic) the return value of the function is
+modified to break the outer loop.*/
+
+static double store_consecutive_total_energy_calc_average(double* array_of_consecutive_total_energy, double total_energy, int iteration){
+
+    int modulo_element = (N+iteration)%N;
+
+    //printf("%d\n",modulo_element);
+
+    array_of_consecutive_total_energy[modulo_element] = total_energy;
+
+    if(N-1 == modulo_element){/*If the array has filled up*/
+       double total_energy_sum = 0.0;/*Initializes total_energy to floating point 0.0*/
+       for(int i = 0; i<N;i++){
+            total_energy_sum += array_of_consecutive_total_energy[i];
+       }
+       double total_energy_av = total_energy_sum/N;/*store average value*/
+       //printf("test total energy ac %g\n",total_energy_av);
+       return total_energy_av;
+    }
+
+
+
+    return FAIL;
+}
+
+
+
+
+
 /*Function to evolve system with randomly selected spins.
 Ideally would have had a single "flip random spin" function executed in a loop in main,
 however I had issues with passing pointers to seeds of the pcg rng.
@@ -203,12 +242,35 @@ static void evolve_system_random_spin(int* spin_array){
 
 
     double *total_energy_array = malloc(ITERATIONS*sizeof(double));
+    double *array_of_consecutive_total_E = malloc(N*sizeof(double));/*Array to store consecutive calculated total_E values.*/
 
-
+    double average_total_energy_1 = 0.0;
+    double average_total_energy_2 = NAN;
+    double relative_error = 100.0;
+    int count = 0;
     for(int i = 0; i<ITERATIONS; i++){
-
+        //printf("%d\n",i);
         double total_energy = evaluate_total_energy(spin_array);
         total_energy_array[i] = total_energy;
+
+        double result = store_consecutive_total_energy_calc_average(array_of_consecutive_total_E,total_energy,i);
+        if(result != 0){
+                printf("result %g\n",result);
+        }
+        if((result != FAIL) && (count == 0)){
+            average_total_energy_1 = result;
+            count = 1;
+        }
+        else if(result!= FAIL){
+            average_total_energy_2 = result;
+            count = 0;
+            //printf("average_1 is %g average_2 is %g\n", average_total_energy_1,average_total_energy_2);
+
+        }
+
+        if(fabs((average_total_energy_1 - average_total_energy_2)/average_total_energy_2) < 0.00001){
+            break;
+        }
 
         int spin_coord_x = RANDOM_BOUND(&rng_x_coord, (D+1));/*Select spin coords from uniform distribution 0-D*/
         int spin_coord_y = RANDOM_BOUND(&rng_y_coord, (D+1));
@@ -216,6 +278,10 @@ static void evolve_system_random_spin(int* spin_array){
         //printf("Spin coord x: %d \nSpin coord y: %d\n",spin_coord_x,spin_coord_y);
 
         double delta_E = calculate_delta_E(spin_array,spin_coord_x,spin_coord_y);/*Call to func to calculate delta_E.*/
+
+
+
+
         /*The below method for determining whether to flip spin taken from CDHW and [1].*/
         if(delta_E <= 0.0){/*If delta_E < 0, flipped spin is the more stable state so flips.*/
             S(spin_coord_x,spin_coord_y) = -S(spin_coord_x,spin_coord_y);
@@ -237,8 +303,16 @@ static void evolve_system_random_spin(int* spin_array){
 
     spin_array_write_to_file(spin_array);
     write_total_E_to_file(total_energy_array);
+    free(total_energy_array);
     plot(GNUPLOT,SCRIPT_EN);
 }
+
+
+
+/*write a function to calculate an updating average of total_E
+If the average is unchanging for a given number of iterations the system has reached equilibrium
+and we can terminate the simulation.*/
+
 
 
 
