@@ -1,0 +1,7 @@
+#gnuplot_magnetism.script
+set term x11 persist
+set size square
+set ylabel "Magnetism scaled with (M/mu * N)"
+set xlabel "Temperature Scaled with (T/T_0)"
+plot("magnetism.txt")
+exit
