@@ -1,0 +1,13 @@
+#specific_heat_with_temp_plot
+set term x11 persist
+set size square
+set ylabel "Specific Heat Capacity scaled with (C/N K_B)"
+set xlabel "Temperature Scaled with (T/T_0)"
+
+f(x) = a*exp(-x) + b* exp(x) + c*x + d
+
+fit f(x) "specific_heat.txt" using 1:2 via a,b,c,d
+
+plot f(x) lt rgb 'red', "specific_heat.txt"
+
+exit
